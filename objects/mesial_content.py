@@ -1,8 +1,6 @@
 import os 
 import uuid
 import sys
-
-from regex import P
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '..')))
@@ -53,13 +51,11 @@ class MesialContent:
                 rm_para = []
                 for para_id, para_infor in enumerate(paragrs_infor):                
                     para_content = Paragraph(img_crop, para_infor).paragraph_content
-                    if not check_remove(para_content):
+                    if not check_outlier(para_content): 
                         total_paragraphs[key].append(para_content)
                     else:
-                        if check_outlier(para_content):
-                            outlier.append(para_content)
-                        else:    
-                            rm_para.append(para_id) 
+                        outlier.append(para_content)
+                        rm_para.append(para_id)
                 if len(rm_para) != 0:
                     rm_total.append([key, rm_para])
         copy_ms_infor = self.ms_information

@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_path
 import pytesseract
 from pytesseract import Output
 import os 
@@ -10,11 +10,12 @@ sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '..')))
 from objects.line import Line
 from objects.paragraph import Paragraph
+from objects.group import GroupContent
 
 
 #######################CONVERT PDF FILE TO PAGE IMGS########################
 def pdf2jpg(pdf_path, first_page, last_page):
-    images = convert_from_bytes(pdf_path, grayscale=True, jpegopt=True,
+    images = convert_from_path(pdf_path, grayscale=True, jpegopt=True,
                                first_page=first_page, last_page=last_page)
     book = []
     for page in images:
@@ -25,6 +26,7 @@ def pdf2jpg(pdf_path, first_page, last_page):
         book.append(page)
     return book
 ###########################################################################
+
 
 ######### EXPAND BOX AFTER DETECTION ######
 def expand_box(box):
@@ -72,11 +74,8 @@ class TextBlockDetection:
 def check_limited_area(bounding_box, shape):
     x1, y1, x2, y2 = bounding_box
     area = (y2 - y1)*(x2 - x1)
-    remove = None
-    if area > shape[0]*shape[1]/100:
-        remove = True
-    else:
-        remove = False
+    remove = False
+    remove = area > shape[0]*shape[1]/100
     return remove
 
 
@@ -110,8 +109,8 @@ class CropLineImgFromTextBlock:
                 output_type=Output.DICT
                 )
             remove_ids = []
-            for id, text in enumerate(self._text_info['text']):
-                if text  == "":
+            for id, conf in enumerate(self._text_info['conf']):
+                if conf  == '-1' or conf == 0:
                     remove_ids.append(id)
             for key in self._text_info.keys():
                 for id, val in enumerate(remove_ids):
@@ -153,7 +152,7 @@ class CropLineImgFromTextBlock:
 ##############################################################################################################################################################################################
 
 
-########################CROP IMGS BELONG TO TITLE########################
+######################## CROP IMGS BELONG TO TITLE ########################
 def crop_imgs_between_2_titles(pages, title1, title2):
     page_id1, tb1 = title1
     page_id2, tb2 = title2
@@ -199,6 +198,77 @@ def crop_imgs_final(pages, final_title):
 
 
 ############################## EXTRACT PARAGRAPHS INFORMATION FROM TESSERACT ##############################################################################
+def find_distance_bt_2_lines(img, para_infor):
+    lines_ct = para_infor[0]
+    lines_coords = para_infor[1]
+    if len(lines_ct) > 1:
+        line1_ct, line2_ct = lines_ct[:2]
+        line1_coord, line2_coord = lines_coords[:2]
+        distance_bt_2lines = Line(img, line2_coord, line2_ct).y_coords[0] - Line(img, line1_coord, line1_ct).y_coords[1]
+    else:
+        distance_bt_2lines = 75
+    return max(2*distance_bt_2lines, 150)
+
+
+def sort_group(group_ids) -> list:
+    key_list = list(group_ids.keys())
+    if len(key_list) == 1:
+        pass
+    else:
+        need_to_loop = True
+        while need_to_loop:
+            compare_list = key_list.copy()
+            for key_id in range(len(key_list) - 1):
+                gr1 = group_ids[key_list[key_id]]
+                gr2 = group_ids[key_list[key_id + 1]]
+                if abs(gr1['std_coord'][1] - gr2['std_coord'][1]) <= 50:
+                    if gr1['std_coord'][0] > gr2['std_coord'][0]:
+                        key_list[key_id], key_list[key_id + 1] = key_list[key_id + 1], key_list[key_id]
+                else:
+                    if gr1['std_coord'][1] > gr2['std_coord'][1]:
+                        key_list[key_id], key_list[key_id + 1] = key_list[key_id + 1], key_list[key_id]
+            need_to_loop = not compare_list == key_list    
+    new_group_ids = {}
+    new_id = 0
+    for key in key_list:
+        new_group_ids[new_id] = group_ids[key]
+        new_id += 1
+    return new_group_ids
+
+
+def check_redudant_group(group_ids, gr_id1, gr_id2):
+    remove_id = None
+    gr1_coord = group_ids[gr_id1]['std_coord']
+    gr2_coord = group_ids[gr_id2]['std_coord']
+    if gr1_coord[1] > gr2_coord[1] and gr1_coord[3] < gr2_coord[3]:
+        area_1 = (gr1_coord[2] - gr1_coord[0])*(gr1_coord[3] - gr1_coord[1])
+        area_2 = (gr2_coord[2] - gr2_coord[0])*(gr2_coord[3] - gr2_coord[1])
+        if area_1/area_2 < 3/7:
+            remove_id = gr_id1
+    elif gr2_coord[1] > gr1_coord[1] and gr2_coord[3] < gr1_coord[3]:
+        area_1 = (gr2_coord[2] - gr2_coord[0])*(gr2_coord[3] - gr2_coord[1])
+        area_2 = (gr1_coord[2] - gr1_coord[0])*(gr1_coord[3] - gr1_coord[1])
+        if area_1/area_2 < 3/7:
+            remove_id = gr_id2
+    return remove_id
+
+
+def remove_redudant_group(group_ids):
+    key_list = list(group_ids.keys())
+    remove_id_list = []
+    for key_id in range(len(key_list) - 1):
+        remove_gr_id = check_redudant_group(
+            group_ids,
+            key_list[key_id],
+            key_list[key_id + 1]
+            )
+        if remove_gr_id is not None:
+            remove_id_list.append(remove_gr_id)
+    for id, val in enumerate(remove_id_list):
+        del group_ids[val - id]
+    return group_ids
+
+
 def extract_paragr_infor_from_tesseract(img):
     text_info = pytesseract.image_to_data(
         cv2.cvtColor(img, cv2.COLOR_BGR2RGB), 
@@ -207,14 +277,11 @@ def extract_paragr_infor_from_tesseract(img):
         )
     remove_ids = []
     for id, text in enumerate(text_info['text']):
-        if text  == "":
+        if text == '' or text == ' ':
             remove_ids.append(id)
     for key in text_info.keys():
         for id, val in enumerate(remove_ids):
-            if id == 0:
-                del text_info[key][val]
-            else:
-                del text_info[key][val - id]
+            del text_info[key][val - id]
     extract_ids = {}
     for ch_id in range(text_info['block_num'].__len__()):
         if not bool(extract_ids):
@@ -249,40 +316,59 @@ def extract_paragr_infor_from_tesseract(img):
                 for word_idx in extract_ids[bl][par][line]:
                     line_ct.append(text_info['text'][word_idx])
                 pr_lines_ct.append(line_ct)
-            paragraphs_infor.append([pr_lines_ct, pr_lines_coords])
+            if check_remove(Paragraph(img, [pr_lines_ct, pr_lines_coords]).paragraph_content):
+                pass
+            else:
+                paragraphs_infor.append([pr_lines_ct, pr_lines_coords])
     group_ids = {}
     for para_id, para_infor in enumerate(paragraphs_infor):
         if len(group_ids) == 0:
             group_ids[0] = {
                 'std_coord': Paragraph(img, para_infor).paragraph_coord,
+                'para_distance': find_distance_bt_2_lines(img, para_infor),
                 'para_ids' : [para_id]
             }
                 
         else:
             keys_list = list(group_ids.keys())
             for key in keys_list[::-1]:            
-                considered_coord = Paragraph(img, para_infor).paragraph_coord
-                if group_ids[key]['std_coord'][0] > considered_coord[2] or group_ids[key]['std_coord'][2] < considered_coord[0]:
-                    group_ids[keys_list[-1] + 1] = {
-                        'std_coord': Paragraph(img, para_infor).paragraph_coord,
-                        'para_ids' : [para_id]
-                    }
-                else:
+                considered_paragr_coord = Paragraph(img, para_infor).paragraph_coord
+                std_group_coord = group_ids[key]['std_coord']
+                std_para_dis = group_ids[key]['para_distance']
+
+                if (abs(considered_paragr_coord[0] - std_group_coord[0]) <= 50 or \
+                        abs(considered_paragr_coord[2] - std_group_coord[2]) <= 50) and \
+                        abs(considered_paragr_coord[1]- std_group_coord[3]) <= std_para_dis and \
+                        considered_paragr_coord[1] > std_group_coord[3]:   
                     group_ids[key]['para_ids'].append(para_id)
                     group_ids[key]['std_coord'] = [
-                        min(group_ids[key]['std_coord'][0], considered_coord[0]),
-                        min(group_ids[key]['std_coord'][1], considered_coord[1]),
-                        max(group_ids[key]['std_coord'][2], considered_coord[2]),
-                        max(group_ids[key]['std_coord'][3], considered_coord[3]),
+                        min(group_ids[key]['std_coord'][0], considered_paragr_coord[0]),
+                        min(group_ids[key]['std_coord'][1], considered_paragr_coord[1]),
+                        max(group_ids[key]['std_coord'][2], considered_paragr_coord[2]),
+                        max(group_ids[key]['std_coord'][3], considered_paragr_coord[3])
                     ]
+                    if group_ids[key]['para_distance'] == 200:
+                        group_ids[key]['para_distance'] = find_distance_bt_2_lines(img, para_infor)
+                    else:
+                        group_ids[key]['para_distance'] = max(
+                            group_ids[key]['para_distance'], 
+                            find_distance_bt_2_lines(img, para_infor)
+                            )
                     break
-
-    sorted_group_ids = {k: v for k, v in sorted(group_ids.items(), key=lambda item: item[1]['std_coord'][1])}
+                else:
+                    group_ids[keys_list[-1] + 1] = {
+                    'std_coord': considered_paragr_coord,
+                    'para_distance': find_distance_bt_2_lines(img, para_infor),
+                    'para_ids': [para_id]
+                }
     new_paragraphs_infor = []
-    new_key_list = list(sorted_group_ids.keys())
-    for key in new_key_list:
-        for new_para_id in sorted_group_ids[key]['para_ids']:
-            new_paragraphs_infor.append(paragraphs_infor[new_para_id])
+    new_group_ids = sort_group(group_ids)
+    rm_rdd_group_ids = remove_redudant_group(new_group_ids)
+    for key in list(rm_rdd_group_ids.keys()):
+        if GroupContent(paragraphs_infor, rm_rdd_group_ids[key]).lines_count > 1 \
+                and GroupContent(paragraphs_infor, rm_rdd_group_ids[key]).words_count > 5:
+            for new_para_id in rm_rdd_group_ids[key]['para_ids']:
+                new_paragraphs_infor.append(paragraphs_infor[new_para_id])
     return new_paragraphs_infor
 ###############################################################################################################################################################
 
@@ -295,10 +381,10 @@ def check_lenght(text):
 
 def check_uncsr_text(text):
     ntr = False
-    check_list = ["Hình", "hình", "Hinh", "hinh"] 
+    check_list1 = ["Hình", "hình", "Hinh", "hinh"] 
     if len(text) >= 6:
-        for check_it in check_list:
-            if check_it in text and text[5].isdecimal():
+        for check_it1 in check_list1:
+            if check_it1 == text[:4]:
                 ntr = True
                 break
     return ntr
@@ -317,7 +403,7 @@ def check_outlier(text):
     return outlier
 
 
-################# MERGE PARAGRAPHS INTO 1 PARAGRAPH LOGICALLY ##################
+############################### MERGE PARAGRAPHS INTO 1 PARAGRAPH LOGICALLY ################################
 class CheckConditionsToMergePars:
 
     def __init__(self, page_img1, page_img2, par_infor1 , par_infor2):
@@ -327,7 +413,6 @@ class CheckConditionsToMergePars:
     @staticmethod
     def find_tab_distance(bg_line: Line, sc_line: Line):
         tap_distance = abs(sc_line.x_cooords[0] - bg_line.x_cooords[0])
-        tap_distance = max(10, tap_distance)
         return tap_distance
 
     @staticmethod
@@ -340,34 +425,73 @@ class CheckConditionsToMergePars:
                 break
         return not is_subtitle
 
+    @staticmethod
+    def check_end_para(text):
+        check_end = ['.', '?', '!', ')', '"', '>']
+        is_end = False
+        if text[-2] in check_end:
+            is_end = True
+        return is_end
+
     @property
     def ntm_2pars(self):
         ntm = False
+        ## first line in pre paragr
         ft_line_pp = Line(
             self._paragr1._img,
             self._paragr1.lines_coords[0],
             self._paragr1.lines_ct[0]
         )
-
+        ## last line in pre paragr
+        lt_line_pp = Line(
+            self._paragr1._img,
+            self._paragr1.lines_coords[-1],
+            self._paragr1.lines_ct[-1]
+        )
+        ## first line in next paragr
         ft_line_np = Line(
             self._paragr2._img,
             self._paragr2.lines_coords[0],
             self._paragr2.lines_ct[0]
         )
         if len(self._paragr1.lines_coords) > 1:
-            nft_line_pp = Line(
+            ## second line in pre paragr
+            sd_line_pp = Line(
                 self._paragr1._img,
                 self._paragr1.lines_coords[1],
                 self._paragr1.lines_ct[1]
             )
-            tab_distance = self.find_tab_distance(ft_line_pp, nft_line_pp)
-        else:
-            tab_distance = 10
-        if ft_line_np.line_content[0].islower() and self.check_not_subtitle(ft_line_np.line_content):
+            ## penultimate line in pre paragr
+            pntm_line_pp = Line(
+                self._paragr1._img,
+                self._paragr1.lines_coords[-2],
+                self._paragr1.lines_ct[-2]
+            )
+
+        if len(self._paragr2.lines_coords) > 1:
+            ## second line in next paragr
+            sd_line_np = Line(
+                self._paragr2._img,
+                self._paragr2.lines_coords[1],
+                self._paragr2.lines_ct[1]
+            )
+        if ft_line_np.line_content[0].islower() \
+                and not self.check_end_para(lt_line_pp.line_content) \
+                and self.check_not_subtitle(ft_line_np.line_content):
             ntm = True
         else:
-            if ft_line_np.x_cooords[0] + 0.5*tab_distance <= ft_line_pp.x_cooords[0]:
-                ntm = True
+            if len(self._paragr1.lines_coords) > 1:
+                if abs(lt_line_pp.x_cooords[0] - ft_line_np.x_cooords[0]) <= 5 \
+                        and not self.check_end_para(lt_line_pp.line_content):
+                    ntm = True
+                else:
+                    if len(self._paragr2._lines_coords) > 1:
+                        if not self.check_end_para(lt_line_pp.line_content) and\
+                                self.find_tab_distance(ft_line_np, sd_line_np) <= 5:
+                            ntm = True
             else:
-                pass
+                if abs(lt_line_pp.x_cooords[0] - ft_line_np.x_cooords[0]) <= 5 \
+                        and not self.check_end_para(lt_line_pp.line_content):
+                    ntm = True
         return ntm
+#######################################################################################################

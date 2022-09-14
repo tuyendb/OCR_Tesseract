@@ -1,0 +1,22 @@
+Chào buổi sáng. Chào mừng quý khách đến khách sạn ABC
+Xin chào buổi sáng. Tôi muốn đặt phòng khách sạn cho tuần thứ 2 của tháng 5. Anh/ chị còn phòng trống chứ?
+Vâng, chúng tôi vẫn còn vài phòng trống trong tuần đó. Cụ thể bạn sẽ đến vào ngày nào?
+Ngày 10
+Bạn sẽ ở lại trong bao lâu?
+Tôi sẽ ở đó trong 3 đêm
+Bạn đặt phòng cho bao nhiêu người?
+Chúng tôi sẽ ở 3 người
+Và bạn muốn đặt phòng có 2 giường đơn hay 1 giường đôi?
+1 giường đôi
+Vâng. Và bạn có muốn một phòng nhìn ra biển chứ?
+Tôi rất thích được ngắm cảnh biển. Phòng như vậy có giá bao nhiêu?
+Phòng của bạn là 500 đô trên 1 đêm. Bây giờ, xin hỏi bạn sẽ đặt phòng với tên là gì?
+Tên của tôi là X
+Số điện thoại để chúng tôi có thể liên lạc với bạn?
+Vâng, số di động của tôi là 511 12345
+Vâng. Bây giờ tôi cần biết thông tin về thẻ tín dụng của bạn. Đó là loại thẻ gì?
+Thẻ visa. Số thẻ là 92435678
+Và người đứng tên thẻ là ai?
+Vâng, bạn X, bạn đã đặt 1 phòng giường đôi nhìn hướng ra biển vào ngày 10 tháng 5. Bạn sẽ nhận phòng vào lúc 1 giờ chiều. Nếu có thắc mắc nào, xin hãy liên lạc với chúng tôi ngay nhé!
+Tuyệt, cảm ơn rất nhiều
+Đây là vinh dự của chúng tôi. Hẹn gặp bạn vào tháng 5. Chúc bạn một ngày tốt lành!

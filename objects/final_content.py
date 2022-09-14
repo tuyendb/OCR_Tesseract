@@ -51,13 +51,11 @@ class FinalContent:
                 rm_para = []
                 for para_id, para_infor in enumerate(paragrs_infor):                
                     para_content = Paragraph(img_crop, para_infor).paragraph_content
-                    if not check_remove(para_content):
+                    if not check_outlier(para_content):
                         total_paragraphs[key].append(para_content)
                     else:
-                        if check_outlier(para_content):
-                            outlier.append(para_content)
-                        else:
-                            rm_para.append(para_id) 
+                        outlier.append(para_content)
+                        rm_para.append(para_id) 
                 if len(rm_para) != 0:
                     rm_total.append([key, rm_para])
         copy_fn_infor = self.fn_information

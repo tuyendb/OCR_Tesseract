@@ -1,6 +1,10 @@
+from multiprocessing.dummy import Array
 import cv2
+import numpy as np
 import os
 import sys
+
+from pandas import array
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__dir__)
 sys.path.append(os.path.abspath(os.path.join(__dir__, '..')))
@@ -14,7 +18,7 @@ class Line:
         self._line_ct = line_ct
         self._line_img_crop = None
         self._binary_img = None
-        self._text_height = None
+        self._y_coords = None
         self._line_img_shape = None
         self._x_cooords = None
     
@@ -46,33 +50,13 @@ class Line:
         return self._binary_img
     
     @property
-    def text_height(self):
-        if self._text_height is None:
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (12, 1))
-            erode_img = cv2.erode(self.binary_img.copy(), kernel, iterations=3)
-            above_point = below_point = None
-            for i1 in range(self.line_img_shape[0]):
-                for j1 in range(int(self.line_img_shape[1] / 2)):
-                    if 255 not in erode_img[i1, j1:j1 + int(self.line_img_shape[1] / 2) + 1]:
-                        above_point = i1
-                        break
-                if above_point is not None:
-                    break
-            for i2 in range(self.line_img_shape[0]):
-                for j2 in range(int(self.line_img_shape[1] / 2)):
-                    if 255 not in erode_img[-i2 - 1, j2:j2 + int(self.line_img_shape[1] / 2) + 1]:
-                        below_point = self.line_img_shape[0] - i2 - 1
-                        break
-                if below_point is not None:
-                    break
-            if below_point is None or above_point is None:
-                self._text_height = 0
-            else:
-                self._text_height = round((below_point - above_point), 1)
-        return self._text_height
+    def y_coords(self) -> tuple:
+        if self._y_coords is None:            
+            self._y_coords = (self._line_coord[1], self._line_coord[3])
+        return self._y_coords
 
     @property
-    def x_cooords(self):
+    def x_cooords(self) -> tuple:
         if self._x_cooords is None:
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 30))
             erode_img = cv2.erode(self.binary_img.copy(), kernel=kernel, iterations=1)

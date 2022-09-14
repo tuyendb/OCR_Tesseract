@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/label/Yolo-to-COCO-format-converter" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/label/labelImg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/module/detectron2-publaynet" vcs="Git" />
+  </component>
+</project>

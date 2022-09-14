@@ -1,0 +1,12 @@
+Xin chào! Đây có phải là phòng khám Việt Anh không?
+Dạ vâng! Chúng tôi đây ạ.
+Tôi muốn sắp xếp một cuộc hẹn với bác sĩ Trâm.
+Vâng. Chị vui lòng cho tôi xin tên được không?
+Cô có thể gọi tôi là Lan.
+Dạ. Chào chị Lan. Chị muốn đặt lịch hẹn vào ngày và giờ nào ạ?
+Hiện tại lịch trình khám bệnh của bác sĩ Trâm như thế nào ạ?
+Trong tuần này bác sĩ sẽ có giờ trống vào chiều thứ 3 và chiều thứ 5 ạ.
+Vậy 2 giờ chiều thứ 3 nhé
+Được ạ . Vậy tôi sẽ lên lịch hẹn cho chị vào lúc 2 giờ chiếu thứ 3 tại phòng khám Việt Anh nhé.
+Dạ vâng. Tôi cảm ơn. Tạm biệt
+Vâng tạm biệt chị.
